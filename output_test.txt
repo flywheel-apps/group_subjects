@@ -1,0 +1,29 @@
+### SUBJECTS ###
+scien/BIDS-Sample/sub-09
+scien/BIDS-Sample/sub-15
+scien/BIDS-Sample/sub-07
+scien/BIDS-Sample/sub-08
+scien/BIDS-Sample/sub-11
+scien/BIDS-Sample/sub-14
+scien/BIDS-Sample/sub-13
+scien/BIDS-Sample/sub-15
+
+
+### EV MATRIX ###
+Decade_30 Decade_20 male female 
+1 0 0 0
+0 1 0 0
+0 1 0 0
+0 1 0 0
+0 1 0 0
+0 0 1 0
+0 0 0 1
+0 0 0 1
+
+
+### CON MATRIX ###
+Decade_30 Decade_20 male female 
+1 0 0 0
+0 1 0 0
+0 0 1 0
+0 0 0 1

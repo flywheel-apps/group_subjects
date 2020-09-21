@@ -1,0 +1,58 @@
+{
+  "name": "group-subjects",
+  "label": "Create Subject Groups",
+  "description": "a gear to modify tags",
+  "maintainer": "Michael Perry <lmperry@stanford.edu>",
+  "author": "Loki, the trickster god",
+  "url": "http://fsl.fmrib.ox.ac.uk/fsl/fslwiki/BET",
+  "source": "https://github.com/scitran-apps/fsl-bet",
+  "license": "MIT",
+  "version": "0.0.1_e",
+  "custom": {
+    "flywheel": {
+      "suite": "Flywheel"
+    },
+    "docker-image": "flywheel/group_subjects:0.0.0",
+    "gear-builder": {
+      "category": "analysis",
+      "image": "flywheel/group_subjects:0.0.0"
+    }
+  },
+  "config": {
+    "Group by": {
+      "description": "Grouping Conditions, either a single metadata key ('age', 'info.customfield', etc), or a search query string",
+      "type": "string",
+      "optional": true
+    },
+    "Order by": {
+      "description": "How to order the subjects within groups.  must be a single metadata key.",
+      "type": "string",
+      "optional": true
+    },
+    "Generate FSL design matrix": {
+      "description": "Generate BASIC copy and paste-able design matricies for FSL feat",
+      "type": "boolean",
+      "default": true
+    },
+    "Gear Log Level": {
+      "default": "debug",
+      "description": "Gear Log verbosity level (ERROR|WARNING|INFO|DEBUG)",
+      "type": "string",
+                        "enum": [
+                                "error",
+                                "warning",
+                                "info",
+                                "debug"
+                        ]
+      
+    }
+  },
+  "inputs": {
+    "api_key": {
+          "base": "api-key",
+          "read-only": true
+      }
+  },
+  "command": "python /flywheel/v0/run.py"
+}
+
