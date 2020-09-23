@@ -45,6 +45,16 @@
                                 "debug"
                         ]
       
+    },
+    "Container Level": {
+      "default": "subject",
+      "description": "The container level to link to",
+      "type": "string",
+              "enum": [
+                      "subject",
+                      "session",
+                      "acquisition",
+              ]
     }
   },
   "inputs": {

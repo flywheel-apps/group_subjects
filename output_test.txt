@@ -1,29 +1,44 @@
 ### SUBJECTS ###
-scien/BIDS-Sample/sub-09
-scien/BIDS-Sample/sub-15
-scien/BIDS-Sample/sub-07
-scien/BIDS-Sample/sub-08
-scien/BIDS-Sample/sub-11
-scien/BIDS-Sample/sub-14
 scien/BIDS-Sample/sub-13
 scien/BIDS-Sample/sub-15
+scien/BIDS-Sample/sub-10
+scien/BIDS-Sample/sub-16
+scien/BIDS-Sample/sub-04
+scien/BIDS-Sample/sub-07
+scien/BIDS-Sample/sub-01
+scien/BIDS-Sample/sub-06
+scien/BIDS-Sample/sub-14
+scien/BIDS-Sample/sub-12
+scien/BIDS-Sample/sub-09
+scien/BIDS-Sample/sub-05
+scien/BIDS-Sample/sub-03
+scien/BIDS-Sample/sub-08
+scien/BIDS-Sample/sub-02
+scien/BIDS-Sample/sub-11
 
 
 ### EV MATRIX ###
-Decade_30 Decade_20 male female 
-1 0 0 0
-0 1 0 0
-0 1 0 0
-0 1 0 0
-0 1 0 0
-0 0 1 0
-0 0 0 1
-0 0 0 1
+g0_female g1_male g2_old 
+1 0 1
+1 0 0
+1 0 1
+1 0 1
+1 0 1
+1 0 0
+1 0 1
+1 0 1
+0 1 1
+0 1 1
+0 1 1
+0 1 1
+0 1 1
+0 1 0
+0 1 1
+0 1 0
 
 
 ### CON MATRIX ###
-Decade_30 Decade_20 male female 
-1 0 0 0
-0 1 0 0
-0 0 1 0
-0 0 0 1
+g0_female g1_male g2_old 
+1 0 0
+0 1 0
+0 0 1

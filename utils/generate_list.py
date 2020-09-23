@@ -5,6 +5,7 @@ import utils.process_config as pc
 import numpy as np
 
 import flywheel
+import utils.flywheel_helpers as fh
 
 log = logging.getLogger(__name__)
 
@@ -31,11 +32,11 @@ def is_query(text):
 
 
 
-def get_unique_values(fw, containers, metadata_key, container_type):
+def get_unique_values(fw, containers, metadata_key, level):
     
-    data_dict = data_dict = {'container':[], 'subject':[], 'val':[]}
+    data_dict =  {'container':[], 'val':[]}
     
-    values = set()
+    unq_values = set()
     log.debug('starting')
     for container in containers:
         container = container.reload()
@@ -51,18 +52,12 @@ def get_unique_values(fw, containers, metadata_key, container_type):
             for key in key_tree:
                 sub_level = sub_level.get(key)
                 
-            if container_type == 'subject':
-                cid = container.id
-                subject = container.label
-            else:
-                cid = container.parents.subject
-                subject = fw.get_subject(cid).label
-                
-            
             value = sub_level
-            data_dict['container'].append(cid)
-            data_dict['subject'].append(subject)
-            data_dict['val'].append(value)
+
+            containers = fh.get_containers_at_level(fw, container, level)
+            values = [value]*len(containers)
+            data_dict['container'].extend(containers)
+            data_dict['val'].extend(values)
             
         except Exception as e:
             log.exception(e)
@@ -71,51 +66,176 @@ def get_unique_values(fw, containers, metadata_key, container_type):
             
         log.debug(value)
         if value != fw_error:
-            values.add(value)
+            unq_values.add(value)
             
+
+    return(unq_values, data_dict)
+            
+
+def run_query_for_containers(fw, project, text, level='session'):
     
-    log.debug(values)
-    log.debug(data_dict)
-    return(values, data_dict)
-            
+    if level == 'subject' or level == 'project':
+        query_level = 'session'
+    else:
+        query_level = level
+
+    query = f'project._id = {project.id} AND {text}'
+    log.debug(query)
+    log.debug(query_level)
+    results = fw.search({'structured_query': query, 'return_type': query_level}, size=10000)
+    
+    return(results, query_level)
+    
     
 
-def process_subgroups(fw, project, groups, finders=False):
+
+def unique_containers_from_list(containers):
+    
+    level_set = set()
+    # https://stackoverflow.com/questions/10024646/how-to-get-list-of-objects-with-unique-attribute/49168973
+    unique_containers = [level_set.add(container.id) or container
+                         for container in containers
+                         if container.id not in level_set]
+    
+    return(unique_containers)
+    
+    
+def set_subgroup_to_level(fw, containers, level):
+    
+    test_c = containers[0]
+    if test_c.container_type is level:
+        return (containers)
+    
+    new_containers = []
+    
+    for container in containers:
+        new_containers.extend(fh.get_containers_at_level(fw, container, level))
+    
+    new_containers = unique_containers_from_list(new_containers)
+    
+    return (new_containers)
+    
+
+def build_subgroup_dict(fw, containers, name):
+    
+    #unique_containers = unique_containers_from_list(containers)
+    ids = [c.id for c in containers]
+    
+    paths = []
+    group = None
+    project = None
+    for c in containers:
+        fw_path = fh.generate_path_to_container(fw, c, group=group, project=project)
+        if group is None:
+            split_path = fw_path.split('/')
+            group = split_path[0]
+            project = split_path[1]
+        paths.append(fw_path)
+    
+    data_dict = {'container': ids, 'path': paths, 'name': name}
+    
+    return(data_dict)
+    
+    #### Next step:  Take multiple dicts like this and concat them all together, each one a new group.  Build up DF
+
+
+def make_evs_fom_dicts(group_dicts):
+    
+    full_id_list = []
+    n_groups = len(group_dicts)
+    full_path_list = []
+    
+    for dict in group_dicts:
+        log.debug(dict)
+        ids = dict['container']
+        paths = dict['path']
+        for fwid, fwpath in zip(ids, paths):
+            if fwid not in full_id_list:
+                full_id_list.append(fwid)
+                full_path_list.append(fwpath)
+    
+    
+    
+    n_unique = len(full_id_list)
+    
+    full_dict = {'containers': full_id_list, 'paths': full_path_list}
+    
+    
+    for ng, dict in enumerate(group_dicts):
+        containers = dict['container']
+        name = dict['name']
+        grouping = np.zeros(n_unique)
+        for fwid in full_id_list:
+            if fwid in containers:
+                i = full_id_list.index(fwid)
+                grouping[i] = 1
+        
+        group_name = f"g{ng}_{name}"
+        full_dict[group_name] = grouping
+    
+    return(full_dict)
+        
+
+def unique_vals_to_subdicts(fw, values, data_dict, level):
+    #{'container': [], 'val': []}
+    containers = np.array(data_dict['container'])
+    data_vals = np.array(data_dict['val'])
+    data_dicts = []
+    for val in values:
+        log.debug(val)
+        log.debug(data_vals)
+        inds = np.where(data_vals == val)
+        log.debug(inds)
+        sub_containers = containers[inds]
+        new_containers = unique_containers_from_list(sub_containers)
+
+        ids = [c.id for c in new_containers]
+    
+        paths = []
+        group = None
+        project = None
+        for c in new_containers:
+            fw_path = fh.generate_path_to_container(fw, c, group=group, project=project)
+            if group is None:
+                split_path = fw_path.split('/')
+                group = split_path[0]
+                project = split_path[1]
+            paths.append(fw_path)
+    
+        data_dict = {'container': ids, 'path': paths, 'name': val}
+        data_dicts.append(data_dict)
+        
+    return(data_dicts)
+        
+        
+        
+    
+    
+    
+
+def process_subgroups(fw, project, groups, level='subject', finders=False):
     
     n_groups = 0
     
     prefix = f"{project.group}/{project.label}"
-    data_dict = {'container':[], 'subject':[], 'group_num':[], 'group_name':[]}
-    group_dict = {}
+    data_dict = {'container': [], 'path': [], 'group_num': [], 'group_name':[]}
+    group_dicts = []
     for name, text in groups.items():
-
         
         if is_query(text):
-
             
-            query = f"project._id = {project.id} AND {text}"
-            results = fw.search({'structured_query': query, 'return_type': 'session'}, size=10000)
+            results, ql = run_query_for_containers(fw, project, text, level)
             
-            if results:
-                n_groups += 1
-                group_dict[name] = n_groups
-            else:
-                log.warning(f'No results for query {query}')
+            if not results:
+                log.warning(f'No results for query {text}')
                 continue
             
-            sessions = [project.sessions.find(f"_id={r.session.id}")[0] for r in results]
-            subjects = set()
-
-            # https://stackoverflow.com/questions/10024646/how-to-get-list-of-objects-with-unique-attribute/49168973
-            unique_subjects = [subjects.add(ses.subject.id) or ses.subject
-                               for ses in sessions
-                               if ses.subject.id not in subjects]
+            containers = [fh.get_level(fw, r.get(ql).id, ql) for r in results]
             
-            for subject in unique_subjects:
-                data_dict['container'].append(subject.id)
-                data_dict['subject'].append(f"{prefix}/{subject.label}")
-                data_dict['group_num'].append(n_groups)
-                data_dict['group_name'].append(name)
+            containers = set_subgroup_to_level(fw, containers, level)
+            subgroup_dict = build_subgroup_dict(fw, containers, name)
+            group_dicts.append(subgroup_dict)
+
 
         else:
             container_level = text.split('.')[0]
@@ -136,23 +256,13 @@ def process_subgroups(fw, project, groups, finders=False):
                     containers.extend(ses.acquisitions.iter())
                 containers = it.chain(*containers)
             
-            unique_values, sub_dict = get_unique_values(fw, containers, group_key, container_level)
-            n_values = len(unique_values)
-            
-            log.debug(f"unique_values: {unique_values}")
-            for val in unique_values:
-                n_groups += 1
-                group_dict[val] = n_groups
-            
-            for i in range(len(sub_dict['container'])):
-                
-                data_dict['container'].append(sub_dict['container'][i])
-                data_dict['subject'].append(f"{prefix}/{sub_dict['subject'][i]}")
-                data_dict['group_name'].append(sub_dict['val'][i])
-                data_dict['group_num'].append(group_dict[sub_dict['val'][i]])
-    
-    log.debug(data_dict)
-    df = pd.DataFrame.from_dict(data_dict)
+            unique_values, sub_dict = get_unique_values(fw, containers, group_key, level)
+            subgroup_dict = unique_vals_to_subdicts(fw, unique_values, sub_dict, level)
+            group_dicts.extend(subgroup_dict)
+
+    full_dict = make_evs_fom_dicts(group_dicts)
+    log.debug(full_dict)
+    df = pd.DataFrame.from_dict(full_dict)
     return(df)
                 
 
@@ -171,15 +281,30 @@ def generate_matrix_from_df(df):
     
     con_mat = np.eye(n_groups)
     
+def generate_matrix_from_df2(df):
+    n_groups = len(df.columns) - 2
+    n_rows = len(df)
+    
+    group_header = list(df.columns[2:])
+    
+    ev_mat = np.zeros((n_rows, n_groups))
+    
+    for ih, header in enumerate(group_header):
+        ev_mat[:, ih] = df[header].values
+        
+    group_header = [h.replace(' ', '_') for h in group_header]
+
+    con_mat = np.eye(n_groups)
+    
     return(ev_mat, con_mat, group_header)
 
 def generate_output_file(df, output_file=None):
     
-    df = df.sort_values('group_num').reset_index()
-    del df['index']
+    # df = df.sort_values('group_num').reset_index()
+    # del df['index']
     
-    subject_section = df['subject'].values
-    ev_mat, con_mat, group_header = generate_matrix_from_df(df)
+    subject_section = df['paths'].values
+    ev_mat, con_mat, group_header = generate_matrix_from_df2(df)
     
     subject_section_header = "### SUBJECTS ###"
     ev_section_header = "\n\n### EV MATRIX ###"
@@ -217,9 +342,9 @@ def test():
     fw = flywheel.Client()
     project = fw.get('5db0759469d4f3001f16e9c1')
     #groupstring = '["session.age_in_years" > 30 AND "session.age_in_years" <= 39]:"Decade 30", ["session.age_in_years" > 20 AND "session.age_in_years" <= 29]:"Decade 20", [subject.sex]'
-    groupstring = "[subject.sex]:sex,[subject.label]:sbuject"
+    groupstring = '[subject.sex], ["session.age_in_years" > 30]:"old"'
     groups = pc.split_groups(groupstring)
     
-    data_dict = process_subgroups(fw, project, groups)
-    df = pd.DataFrame.from_dict(data_dict)
-    
+    df = process_subgroups(fw, project, groups, level='session', finders=False)
+
+    return(df)
